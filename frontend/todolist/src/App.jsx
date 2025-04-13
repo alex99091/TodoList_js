@@ -1,68 +1,68 @@
 import './App.css'
-import { useState, useRef } from "react";
+import { useState, useEffect } from "react";
 import Header from "./components/Header";
 import Editor from "./components/Editor";
 import List from "./components/List";
-import todoItem from "./components/TodoItem.jsx";
-
-
-const mockData = [
-  {
-    id: 0,
-    isDone: false,
-    content: "React 공부하기",
-    date: new Date().getTime(),
-  },
-  {
-    id: 1,
-    isDone: false,
-    content: "운동하기",
-    date: new Date().getTime(),
-  },
-  {
-    id: 2,
-    isDone: false,
-    content: "노래듣기",
-    date: new Date().getTime(),
-  },
-];
+import { fetchTodos, addTodo, updateTodo, deleteTodo } from "./apis/todoApi";
 
 function App() {
-  const [todos, setTodos] = useState(mockData);
-  const idRef = useRef(3);
+  const [todos, setTodos] = useState([]);
 
-  const onCreate = (content) => {
+  useEffect(() => {
+    fetchTodos()
+        .then(res => setTodos(res.data))
+        .catch(err => console.error("❌ 불러오기 실패", err));
+  }, []);
+
+  const onCreate = async (content) => {
     const newTodo = {
-      id: idRef.current++,
-      isDone: false,
-      content: content,
-      date: new Date().getTime()
+      content,
+      done: false,
+      date: Date.now()
+    };
+
+    try {
+      const res = await addTodo(newTodo);
+      setTodos((prev) => [res.data, ...prev]); // ✅ 서버에서 반환된 todo 사용
+    } catch (err) {
+      console.error("❌ 등록 실패", err);
     }
-
-    setTodos([newTodo,...todos]);
   };
 
-  const onUpdate = (targetId) => {
-    setTodos(
-        todos.map((todo)=>
-            todo.id === targetId
-                ? {...todo, isDone:!todo.isDone }
-                : todo
-        )
-    );
+  const onUpdate = async (targetId) => {
+    const target = todos.find((todo) => todo.id === targetId);
+    if (!target) return;
+
+    const updated = { ...target, done: !target.done };
+
+    try {
+      await updateTodo(updated);
+      setTodos(
+          todos.map((todo) =>
+              todo.id === targetId ? updated : todo
+          )
+      );
+    } catch (err) {
+      console.error("❌ 수정 실패", err);
+    }
   };
 
-  const onDelete = (targetId) => {
-    setTodos(todos.filter((todo)=>todo.id !== targetId));
-  }
+  const onDelete = async (targetId) => {
+    try {
+      await deleteTodo(targetId);
+      setTodos(todos.filter((todo) => todo.id !== targetId));
+    } catch (err) {
+      console.error("❌ 삭제 실패", err);
+    }
+  };
 
   return (
-    <div className="App">
-      <Header />
-      <Editor onCreate={onCreate}/>
-      <List todos={todos} onUpdate={onUpdate} onDelete={onDelete}/>
-    </div>
+      <div className="App">
+        <Header />
+        <Editor onCreate={onCreate} />
+        <List todos={todos} onUpdate={onUpdate} onDelete={onDelete} />
+      </div>
   );
 }
 
-export default App
+export default App;
